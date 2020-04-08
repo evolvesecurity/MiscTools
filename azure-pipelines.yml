@@ -1,0 +1,58 @@
+# .NET Desktop
+
+trigger:
+- master
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: 'MiscTools.sln'
+  arch: 'x64'
+  conf: 'Release'
+  outpathcsexec: 'CsExec/bin/Release/CsExec.exe'
+  s3pathcsexec: '/CsExec45.exe'
+  outpathcswmi: 'CsWMI/bin/Release/CsWMI.exe'
+  s3pathcswmi: '/CsWMI45.exe'
+  s3helperurl: 'https://github.com/3lpsy/s3upload/releases/download/0.0.1/s3upload-windows-amd64'
+
+steps:
+- task: NuGetToolInstaller@1
+
+- task: NuGetCommand@2
+  inputs:
+    restoreSolution: '$(solution)'
+
+- task: MSBuild@1
+  inputs:
+    solution: '$(solution)'
+    configuration: '$(conf)'
+    msbuildArchitecture: '$(arch)'
+    clean: true
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: '(New-Object Net.WebClient).DownloadFile("$(s3helperurl)", "$(Build.SourcesDirectory)/s3upload.exe")'
+    failOnStderr: true
+    workingDirectory: '$(Build.SourcesDirectory)'
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: '$(Build.SourcesDirectory)/s3upload.exe -source $(Build.SourcesDirectory)/$(outpathcsexec) -destination $(s3pathcsexec)'
+    failOnStderr: true
+  env:
+    AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+    AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    AWS_BUCKET: $(AWS_BUCKET)
+
+- task: PowerShell@2
+  inputs:
+    targetType: 'inline'
+    script: '$(Build.SourcesDirectory)/s3upload.exe -source $(Build.SourcesDirectory)/$(outpathcswmi) -destination $(s3pathcswmi)'
+    failOnStderr: true
+  env:
+    AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+    AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    AWS_BUCKET: $(AWS_BUCKET)
